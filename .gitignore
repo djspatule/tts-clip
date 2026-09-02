@@ -4,4 +4,10 @@ env
 .env
 __pycache__/
 *.pyc
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .DS_Store
