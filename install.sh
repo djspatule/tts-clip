@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PLUGIN_DIR="$HOME/.config/omarchy/plugins/io.github.djspatule.tts-clip"
-SCRIPT_SRC="$PLUGIN_DIR/tts-clip.py"
+SCRIPT_SRC="$PLUGIN_DIR/tts_clip.py"
 SCRIPT_BIN="$HOME/.local/bin/tts-clip"
 ENV_DIR="$HOME/.config/tts-clip"
 ENV_FILE="$ENV_DIR/env"

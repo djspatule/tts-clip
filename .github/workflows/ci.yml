@@ -1,0 +1,98 @@
+---
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    name: lint, type-check, test, security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-pip python3-venv jq shellcheck
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy bandit pytest pytest-cov
+
+      - name: Install gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ruff (lint)
+        run: ruff check .
+
+      - name: ruff (format check)
+        run: ruff format --check .
+
+      - name: mypy --strict
+        run: mypy --strict tts_clip.py
+
+      - name: bandit
+        run: bandit -c pyproject.toml -r . --exit-zero
+        # exit-zero so we don't fail on informational Low severity
+
+      - name: gitleaks
+        run: gitleaks detect --source . --no-banner --exit-code 1
+
+      - name: shellcheck
+        run: shellcheck -s bash install.sh
+
+      - name: qmllint
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.6.0"
+          host: linux
+          target: desktop
+          arch: gcc_64
+          modules: "qtshadertools"
+      - run: qmllint BarWidget.qml
+
+      - name: jq validate manifest.json
+        run: jq . manifest.json
+
+      - name: pytest
+        run: pytest --cov=tts_clip --cov-report=term-missing tests/
+
+  omarchy-plugin-validate:
+    name: omarchy plugin validate
+    runs-on: ubuntu-latest
+    # We can't run `omarchy plugin validate` on Ubuntu — it needs an Omarchy
+    # install. The test suite's test_manifest_validates_via_omarchy covers it
+    # locally; in CI we instead validate the manifest schema by hand.
+    steps:
+      - uses: actions/checkout@v4
+      - name: jq validate manifest.json (duplicate, fast)
+        run: |
+          jq -e '
+            .schemaVersion == 1
+            and (.id | type == "string")
+            and (.id | test("^\\w+\\.\\w+\\.\\w+$"))
+            and (.name | type == "string" and length > 0)
+            and (.version | type == "string")
+            and (.author | type == "string")
+            and (.license | type == "string")
+            and (.description | type == "string")
+            and (.kinds | type == "array" and length > 0)
+            and (.entryPoints | type == "object" and length > 0)
+          ' manifest.json

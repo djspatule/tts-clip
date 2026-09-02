@@ -1,0 +1,10 @@
+# yamllint config — relax GitHub-Actions-specific syntax.
+extends: default
+rules:
+  line-length:
+    max: 120
+  # GitHub Actions uses `on:` (truthy key) which yamllint flags but is valid.
+  truthy:
+    allowed-values: ["true", "false", "on", "off"]
+    check-keys: false
+  document-start: disable

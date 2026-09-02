@@ -1,0 +1,45 @@
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+# E/W: pycodestyle/pyflakes essentials
+# I: import sort
+# F: pyflakes
+# B: bugbear (common pitfalls)
+# S: security (bandit-equivalent at lint level)
+# PL: pylint
+# UP: pyupgrade
+# SIM: simplify
+# RUF: ruff-specific
+select = ["E", "W", "F", "I", "B", "S", "UP", "SIM", "RUF", "PL"]
+ignore = [
+    "PLR2004",  # magic values are fine in a small CLI
+    "S404",     # subprocess module - we use it on purpose
+    "S603",     # subprocess without shell - we WANT no shell
+    "S607",     # partial path - we use shutil.which which is intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "PL"]  # tests can do anything
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[tool.bandit]
+# subprocess is by design; no shell anywhere
+exclude_dirs = ["tests"]
+skips = ["B404", "B603", "B607"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]

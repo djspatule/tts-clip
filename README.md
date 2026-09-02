@@ -36,13 +36,13 @@ omarchy plugin add https://github.com/djspatule/tts-clip --enable
 ./install.sh
 ```
 
-The plugin command clones this repo into `~/.config/omarchy/plugins/io.github.djspatule.tts-clip/`. `install.sh` symlinks `tts-clip.py` into `~/.local/bin/tts-clip` and stores your MiniMax API key at `~/.config/tts-clip/env` (mode 600).
+The plugin command clones this repo into `~/.config/omarchy/plugins/io.github.djspatule.tts-clip/`. `install.sh` symlinks `tts_clip.py` into `~/.local/bin/tts-clip` and stores your MiniMax API key at `~/.config/tts-clip/env` (mode 600).
 
 ## Install (manual, any Wayland desktop)
 
 ```sh
 git clone https://github.com/djspatule/tts-clip ~/.local/share/tts-clip
-ln -sf ~/.local/share/tts-clip/tts-clip.py ~/.local/bin/tts-clip
+ln -sf ~/.local/share/tts-clip/tts_clip.py ~/.local/bin/tts-clip
 chmod +x ~/.local/bin/tts-clip
 mkdir -p ~/.config/tts-clip
 echo "MiniMax_API_KEY=sk-cp-YOUR-KEY-HERE" > ~/.config/tts-clip/env
@@ -70,7 +70,7 @@ While audio is being generated, `tts-clip` prints `generating speech for N chars
 
 ## Configuration
 
-Two constants live near the top of `tts-clip.py`:
+Two constants live near the top of `tts_clip.py`:
 
 | Constant           | Default                | Purpose                                  |
 | ------------------ | ---------------------- | ---------------------------------------- |

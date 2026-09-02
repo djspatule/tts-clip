@@ -12,14 +12,17 @@ Exit codes:
   3  API or auth error (incl. final status_code != 0)
   4  environment / dependency missing (wl-paste, mpv, curl, key file)
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 API_URL = "https://api.minimax.io/v1/t2a_v2"
 MODEL = "speech-02-turbo"
@@ -29,9 +32,7 @@ BITRATE = 128000
 MAX_CHARS = 50000
 CURL_TIMEOUT_SEC = 300
 
-CONFIG_DIR = Path(
-    os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
-) / "tts-clip"
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "tts-clip"
 ENV_FILE = CONFIG_DIR / "env"
 
 
@@ -74,6 +75,7 @@ def read_clipboard() -> str:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         print("error: timed out reading clipboard", file=sys.stderr)
@@ -90,7 +92,11 @@ def read_clipboard() -> str:
     return result.stdout
 
 
-def stream_sse_to_mpv(payload: dict, api_key: str, mpv_proc: subprocess.Popen) -> int:
+def stream_sse_to_mpv(
+    payload: dict[str, object],
+    api_key: str,
+    mpv_proc: subprocess.Popen[bytes],
+) -> int:
     """Stream SSE response from MiniMax into mpv's stdin.
 
     Returns 0 on success, 3 on API/auth error, 1 on other failure.
@@ -120,48 +126,34 @@ def stream_sse_to_mpv(payload: dict, api_key: str, mpv_proc: subprocess.Popen) -
         stderr=subprocess.PIPE,
     )
 
-    assert curl_proc.stdout is not None
+    if curl_proc.stdout is None or mpv_proc.stdin is None:
+        print("error: failed to open pipes to curl/mpv", file=sys.stderr)
+        return 1
+
+    curl_stdout = curl_proc.stdout
     mpv_stdin = mpv_proc.stdin
-    assert mpv_stdin is not None
 
     final_status_code: int | None = None
     final_status_msg: str | None = None
     api_error_payload: str | None = None
 
     try:
-        for raw_line in curl_proc.stdout:
-            line = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
-            if not line:
+        for raw_line in curl_stdout:
+            event = parse_sse_event(raw_line.decode("utf-8", errors="replace").rstrip("\r\n"))
+            if event.kind == "skip":
                 continue
-            if not line.startswith("data:"):
-                continue
-            data_str = line[5:].lstrip()
-            if not data_str:
-                continue
-            try:
-                obj = json.loads(data_str)
-            except json.JSONDecodeError:
-                continue
-
-            base = obj.get("base_resp") or {}
-            if base.get("status_code") not in (0, None):
-                final_status_code = base.get("status_code")
-                final_status_msg = base.get("status_msg")
-                api_error_payload = data_str
+            if event.kind == "error":
+                final_status_code, final_status_msg = event.code, event.message
+                api_error_payload = event.payload
                 break
-
-            data = obj.get("data") or {}
-            if data.get("status") == 2:
-                audio_hex = data.get("audio")
-                if audio_hex:
-                    mpv_stdin.write(bytes.fromhex(audio_hex))
+            if event.kind == "final":
+                if event.audio:
+                    mpv_stdin.write(event.audio)
                     mpv_stdin.flush()
                 break
     finally:
-        try:
+        with contextlib.suppress(OSError):
             mpv_stdin.close()
-        except Exception:
-            pass
 
     curl_err = b""
     if curl_proc.stderr is not None:
@@ -180,6 +172,49 @@ def stream_sse_to_mpv(payload: dict, api_key: str, mpv_proc: subprocess.Popen) -
         print(f"error: MiniMax API request failed: {msg}", file=sys.stderr)
         return 3
     return 0
+
+
+class SseEvent(NamedTuple):
+    kind: str  # "skip" | "error" | "final"
+    audio: bytes = b""
+    code: int = 0
+    message: str = ""
+    payload: str = ""
+
+
+def parse_sse_event(line: str) -> SseEvent:
+    """Parse a single SSE ``data:`` line from the MiniMax streaming endpoint.
+
+    The MiniMax T2A v2 protocol sends progress deltas first (``status: 1``) and
+    a final cumulative chunk (``status: 2``) that contains the entire MP3 from
+    byte zero. Streaming deltas are reported as ``skip``; the final chunk is
+    returned as ``final`` with decoded audio bytes.
+    """
+    if not line.startswith("data:"):
+        return SseEvent(kind="skip")
+    data_str = line[5:].lstrip()
+    if not data_str:
+        return SseEvent(kind="skip")
+    try:
+        obj = json.loads(data_str)
+    except json.JSONDecodeError:
+        return SseEvent(kind="skip")
+
+    base = obj.get("base_resp") or {}
+    code_raw = base.get("status_code")
+    if code_raw is not None and code_raw != 0:
+        return SseEvent(
+            kind="error",
+            code=int(code_raw),
+            message=str(base.get("status_msg") or ""),
+            payload=data_str,
+        )
+
+    data = obj.get("data") or {}
+    if data.get("status") == 2:
+        audio_hex = data.get("audio") or ""
+        return SseEvent(kind="final", audio=bytes.fromhex(audio_hex))
+    return SseEvent(kind="skip")
 
 
 def speak(text: str, api_key: str) -> int:
@@ -234,7 +269,7 @@ def speak(text: str, api_key: str) -> int:
 
     mpv_proc.wait()
     if mpv_proc.returncode not in (0, None):
-        mpv_err = b""
+        mpv_err = ""
         if mpv_proc.stderr is not None:
             mpv_err = mpv_proc.stderr.read().decode(errors="replace").strip()
         print(f"error: mpv playback failed: {mpv_err}", file=sys.stderr)
