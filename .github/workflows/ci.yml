@@ -35,9 +35,13 @@ jobs:
           pip install ruff mypy bandit pytest pytest-cov
 
       - name: Install gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          GITLEAKS_VERSION="v8.21.2"
+          BINARY="gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/${BINARY}"
+          curl -sSfL "$URL" | sudo tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
 
       - name: ruff (lint)
         run: ruff check .
@@ -82,12 +86,14 @@ jobs:
     # locally; in CI we instead validate the manifest schema by hand.
     steps:
       - uses: actions/checkout@v4
+      - name: Install jq
+        run: sudo apt-get install -y --no-install-recommends jq
       - name: jq validate manifest.json (duplicate, fast)
         run: |
           jq -e '
             .schemaVersion == 1
             and (.id | type == "string")
-            and (.id | test("^\\w+\\.\\w+\\.\\w+$"))
+            and (.id | test("^[[:alnum:]_-]+\\.[[:alnum:]_-]+\\.[[:alnum:]_-]+\\.[[:alnum:]_-]+$"))
             and (.name | type == "string" and length > 0)
             and (.version | type == "string")
             and (.author | type == "string")

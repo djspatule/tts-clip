@@ -378,10 +378,14 @@ def need_tool(name: str) -> str:
 def read_clipboard() -> str:
     need_tool("wl-paste")
     try:
+        # ``wl-paste`` may surface non-text MIME types (e.g. images copied from
+        # a screenshot tool) as raw bytes. We request bytes and decode with
+        # ``errors="replace"`` so a binary clipboard doesn't kill the script
+        # with a UnicodeDecodeError — we just get garbled text and speak
+        # ``clipboard is empty`` if nothing decodes to a non-whitespace string.
         result = subprocess.run(
             ["wl-paste", "--no-newline"],
             capture_output=True,
-            text=True,
             timeout=5,
             check=False,
         )
@@ -391,9 +395,12 @@ def read_clipboard() -> str:
     if result.returncode != 0 and not result.stdout:
         return ""
     if result.returncode != 0:
-        print(f"error: wl-paste failed: {result.stderr.strip()}", file=sys.stderr)
+        print(
+            f"error: wl-paste failed: {result.stderr.decode(errors='replace').strip()}",
+            file=sys.stderr,
+        )
         sys.exit(4)
-    return result.stdout
+    return result.stdout.decode("utf-8", errors="replace")
 
 
 def list_providers() -> None:
