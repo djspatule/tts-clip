@@ -1,0 +1,7 @@
+# Anything that could leak API keys or local state
+env
+*.env
+.env
+__pycache__/
+*.pyc
+.DS_Store
