@@ -6,6 +6,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL = REPO_ROOT / "install.sh"
 
@@ -39,16 +41,35 @@ def test_install_sh_creates_env_file_mode_600() -> None:
     assert re.search(r"chmod\s+600", content), "install.sh must chmod 600 the env file"
 
 
-def test_install_sh_does_not_embed_any_secrets() -> None:
-    """The install script must not hard-code a real API key.
-
-    The literal prefix ``sk-cp-`` is fine to mention (e.g. in prompt copy) but
-    anything that looks like a full key (40+ chars after the prefix) is not.
-    """
+def test_install_sh_does_not_embed_any_real_secrets() -> None:
+    """The literal prefix ``sk-cp-`` is fine in prompt copy, but no real key."""
     content = INSTALL.read_text()
-    # Look for sk-cp- followed by >= 40 hex-ish chars, NOT a placeholder
     real_key = re.search(r"sk-cp-[A-Za-z0-9_-]{30,}", content)
     assert not real_key, f"possible embedded key in install.sh: {real_key.group(0)[:20]}..."
-    assert (
-        "your MiniMax" in content or "paste your" in content.lower()
-    ), "install.sh should prompt the user for their key"
+    assert "paste your" in content.lower(), "install.sh should prompt for the key"
+
+
+@pytest.mark.parametrize(
+    "provider,env_key",
+    [
+        ("MiniMax", "MiniMax_API_KEY"),
+        ("openai", "OPENAI_API_KEY"),
+        ("elevenlabs", "ELEVENLABS_API_KEY"),
+    ],
+)
+def test_install_sh_handles_each_provider(provider: str, env_key: str) -> None:
+    content = INSTALL.read_text()
+    assert provider in content, f"{provider} not mentioned in install.sh"
+    assert env_key in content, f"{env_key} not referenced in install.sh"
+
+
+def test_install_sh_lists_provider_choices_in_prompt() -> None:
+    content = INSTALL.read_text()
+    # The interactive prompt should mention all three providers.
+    assert "1)" in content and "2)" in content and "3)" in content
+
+
+def test_install_sh_writes_tts_provider_line() -> None:
+    """The env file must record which provider was chosen."""
+    content = INSTALL.read_text()
+    assert "TTS_PROVIDER=" in content, "install.sh must write TTS_PROVIDER=... to env"

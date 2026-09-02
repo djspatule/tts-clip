@@ -80,13 +80,13 @@ def test_entry_points_match_kinds(manifest: dict[str, object]) -> None:
     }
     for kind in manifest["kinds"]:
         ep_key = kind_to_key[str(kind)]
-        assert (
-            ep_key in entry_points
-        ), f"missing entry point for kind {kind} (expected key {ep_key})"
+        assert ep_key in entry_points, (
+            f"missing entry point for kind {kind} (expected key {ep_key})"
+        )
         file_name = entry_points[ep_key]
-        assert (
-            REPO_ROOT / str(file_name)
-        ).is_file(), f"entry point file does not exist: {file_name}"
+        assert (REPO_ROOT / str(file_name)).is_file(), (
+            f"entry point file does not exist: {file_name}"
+        )
 
 
 def test_manifest_validates_via_omarchy(manifest: dict[str, object]) -> None:
@@ -118,3 +118,10 @@ def test_no_secrets_in_manifest(manifest: dict[str, object]) -> None:
     raw = MANIFEST.read_text()
     assert "sk-cp-" not in raw, "found sk-cp- in manifest"
     assert "MiniMax_API_KEY" not in raw, "found API key name in manifest"
+
+
+def test_description_mentions_multiple_providers(manifest: dict[str, object]) -> None:
+    """The marketplace description should advertise provider choice."""
+    desc = str(manifest["description"])
+    for needle in ("MiniMax", "OpenAI", "ElevenLabs"):
+        assert needle in desc, f"description missing {needle!r}: {desc}"

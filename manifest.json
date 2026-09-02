@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "djspatule",
   "license": "MIT",
-  "description": "A bar widget that speaks the current clipboard text using MiniMax TTS. Click the bar widget (or trigger the bound keybind) and the selected text is read aloud through natural neural voices.",
+  "description": "A bar widget that speaks the current clipboard text using a neural TTS provider (MiniMax, OpenAI / Codex, or ElevenLabs). Click the widget or hit your keybind to have selected text read aloud.",
   "kinds": ["bar-widget"],
   "entryPoints": { "barWidget": "BarWidget.qml" },
   "barWidget": {

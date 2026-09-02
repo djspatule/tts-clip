@@ -40,6 +40,10 @@ check_untyped_defs = true
 exclude_dirs = ["tests"]
 skips = ["B404", "B603", "B607"]
 
+[tool.coverage.run]
+source = ["tts_clip"]
+omit = ["tests/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
