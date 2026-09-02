@@ -80,13 +80,13 @@ def test_entry_points_match_kinds(manifest: dict[str, object]) -> None:
     }
     for kind in manifest["kinds"]:
         ep_key = kind_to_key[str(kind)]
-        assert ep_key in entry_points, (
-            f"missing entry point for kind {kind} (expected key {ep_key})"
-        )
+        assert (
+            ep_key in entry_points
+        ), f"missing entry point for kind {kind} (expected key {ep_key})"
         file_name = entry_points[ep_key]
-        assert (REPO_ROOT / str(file_name)).is_file(), (
-            f"entry point file does not exist: {file_name}"
-        )
+        assert (
+            REPO_ROOT / str(file_name)
+        ).is_file(), f"entry point file does not exist: {file_name}"
 
 
 def test_manifest_validates_via_omarchy(manifest: dict[str, object]) -> None:

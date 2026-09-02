@@ -49,6 +49,6 @@ def test_install_sh_does_not_embed_any_secrets() -> None:
     # Look for sk-cp- followed by >= 40 hex-ish chars, NOT a placeholder
     real_key = re.search(r"sk-cp-[A-Za-z0-9_-]{30,}", content)
     assert not real_key, f"possible embedded key in install.sh: {real_key.group(0)[:20]}..."
-    assert "your MiniMax" in content or "paste your" in content.lower(), (
-        "install.sh should prompt the user for their key"
-    )
+    assert (
+        "your MiniMax" in content or "paste your" in content.lower()
+    ), "install.sh should prompt the user for their key"
